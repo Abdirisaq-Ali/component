@@ -5,35 +5,40 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import dk.sdu.mmmi.cbse.asteroid.AsteroidPlugin;
-import dk.sdu.mmmi.cbse.asteroid.AsteroidProcessor;
-import dk.sdu.mmmi.cbse.bulletsystem.BulletControlSystem;
-import dk.sdu.mmmi.cbse.collisionsystem.CollisionDetector;
 import dk.sdu.mmmi.cbse.common.data.Entity;
 import dk.sdu.mmmi.cbse.common.data.GameData;
 import dk.sdu.mmmi.cbse.common.data.World;
 import dk.sdu.mmmi.cbse.common.services.IEntityProcessingService;
 import dk.sdu.mmmi.cbse.common.services.IGamePluginService;
 import dk.sdu.mmmi.cbse.common.services.IPostEntityProcessingService;
-import dk.sdu.mmmi.cbse.enemysystem.EnemyControlSystem;
-import dk.sdu.mmmi.cbse.enemysystem.EnemyPlugin;
 import dk.sdu.mmmi.cbse.managers.GameInputProcessor;
-import dk.sdu.mmmi.cbse.playersystem.PlayerControlSystem;
-import dk.sdu.mmmi.cbse.playersystem.PlayerPlugin;
-import java.util.ArrayList;
-import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 
-public class Game
-        implements ApplicationListener {
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.ServiceLoader;
+import static java.util.stream.Collectors.toList;
+
+public class Game implements ApplicationListener {
 
     private static OrthographicCamera cam;
     private ShapeRenderer sr;
 
     private final GameData gameData = new GameData();
-    private List<IEntityProcessingService> entityProcessors = new ArrayList<>();
-    private List<IGamePluginService> entityPlugins = new ArrayList<>();
-    private List<IPostEntityProcessingService> entityPostProcessors = new ArrayList<>();
+
+    private final List<IGamePluginService> gamePluginServices;
+    private final List<IEntityProcessingService> entityProcessors;
+    private final List<IPostEntityProcessingService> postEntityProcessors;
     private World world = new World();
+
+    public Game(List<IGamePluginService> gamePluginServices, List<IEntityProcessingService> entityProcessors, List<IPostEntityProcessingService> postEntityProcessors) {
+        this.gamePluginServices = gamePluginServices;
+        this.entityProcessors = entityProcessors;
+        this.postEntityProcessors = postEntityProcessors;
+    }
 
     @Override
     public void create() {
@@ -51,46 +56,10 @@ public class Game
                 new GameInputProcessor(gameData)
         );
 
-
-       //player
-        IGamePluginService playerPlugin = new PlayerPlugin();
-
-        IEntityProcessingService playerProcess = new PlayerControlSystem();
-        entityPlugins.add(playerPlugin);
-        entityProcessors.add(playerProcess);
-
-        //enemy
-        IGamePluginService enemyPlugin = new EnemyPlugin();
-
-        IEntityProcessingService enemyProcess = new EnemyControlSystem();
-        entityPlugins.add(enemyPlugin);
-        entityProcessors.add(enemyProcess);
-
-
-        // Bullet controller
-        IEntityProcessingService bulletProcess = new BulletControlSystem();
-        entityProcessors.add(bulletProcess);
-
-        // Big Asteroid
-
-            IGamePluginService bigAsteroidPlugin = new AsteroidPlugin();
-            entityPlugins.add(bigAsteroidPlugin);
-
-        // Big Asteroid controller
-        IEntityProcessingService bigAsteroidProcess = new AsteroidProcessor();
-        entityProcessors.add(bigAsteroidProcess);
-
-        // Collision processor
-        IPostEntityProcessingService collisionProcess = new CollisionDetector();
-        entityPostProcessors.add(collisionProcess);
-
         // Lookup all Game Plugins using ServiceLoader
-        for (IGamePluginService iGamePlugin : entityPlugins) {
+        for (IGamePluginService iGamePlugin : gamePluginServices) {
             iGamePlugin.start(gameData, world);
         }
-
-
-
     }
 
     @Override
@@ -114,10 +83,8 @@ public class Game
         for (IEntityProcessingService entityProcessorService : entityProcessors) {
             entityProcessorService.process(gameData, world);
         }
-
-        // Collision detection
-        for (IPostEntityProcessingService entityPostProcessorService : entityPostProcessors) {
-            entityPostProcessorService.process(gameData, world);
+        for (IPostEntityProcessingService postEntityProcessorService : postEntityProcessors) {
+            postEntityProcessorService.process(gameData, world);
         }
     }
 
@@ -132,8 +99,8 @@ public class Game
             float[] shapey = entity.getShapeY();
 
             for (int i = 0, j = shapex.length - 1;
-                    i < shapex.length;
-                    j = i++) {
+                 i < shapex.length;
+                 j = i++) {
 
                 sr.line(shapex[i], shapey[i], shapex[j], shapey[j]);
             }
